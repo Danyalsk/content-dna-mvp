@@ -19,7 +19,7 @@ export async function extractContentDNA(transcription: TranscriptionResult, onPr
     ? transcription.segments[transcription.segments.length - 1].end 
     : 60;
 
-  const prompt = `You are the world's best viral video editor working at OpusClip. Your job is to find the 2 most VIRAL, ENGAGING moments from a long video and turn them into YouTube Shorts clips.
+  const prompt = `You are the world's best viral video editor working at OpusClip. Your job is to find the 5 most VIRAL, ENGAGING moments from a long video and turn them into YouTube Shorts clips.
 
 WHAT MAKES A VIRAL CLIP:
 - A strong opinion or controversial take that triggers emotion
@@ -45,7 +45,7 @@ The total video duration is ${totalDuration.toFixed(1)} seconds. Pick clips from
 Analyze the transcript below and return a JSON object with:
 1. "topic": the main topic in under 5 words
 2. "twitterPosts": array of 3 engaging tweets (under 280 chars each)
-3. "clips": array of exactly 2 clips, each with:
+3. "clips": array of exactly 5 clips, each with:
    - "title": a catchy, clickbait-worthy title
    - "startTime": start time in seconds (number, from the transcript timestamps)
    - "endTime": end time in seconds (number, from the transcript timestamps). MUST be at least 30 seconds after startTime.
@@ -137,21 +137,16 @@ ${transcription.segments.map(s => `[${s.start.toFixed(1)}s - ${s.end.toFixed(1)}
     // Fallback if local 3B model ignores instructions and returns empty clips
     if (parsed.clips.length === 0) {
       console.warn("[Ollama] Model returned 0 clips. Falling back to smart defaults.");
-      const mid = totalDuration / 2;
-      parsed.clips.push(
-        {
-          title: "Key Insight #1",
-          startTime: Math.max(0, totalDuration * 0.1),
-          endTime: Math.min(totalDuration, totalDuration * 0.1 + 40),
+      const step = totalDuration / 4;
+      for (let c = 0; c < 3; c++) {
+        const s = Math.max(0, step * (c + 0.5));
+        parsed.clips.push({
+          title: `Key Insight #${c + 1}`,
+          startTime: s,
+          endTime: Math.min(totalDuration, s + 40),
           contextOverlay: "Watch this:"
-        },
-        {
-          title: "Key Insight #2",
-          startTime: Math.max(0, mid),
-          endTime: Math.min(totalDuration, mid + 40),
-          contextOverlay: "The truth:"
-        }
-      );
+        });
+      }
     }
 
     // ========== POST-PROCESSING: Fix clips that are too short ==========

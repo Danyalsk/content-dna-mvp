@@ -3,6 +3,7 @@ import { downloadVideo } from '../services/youtube';
 import { transcribeAudio } from '../services/transcription';
 import { extractContentDNA } from '../services/ollama';
 import { generateClips } from '../services/ffmpeg';
+import { saveClipRating } from '../services/ratings';
 
 export const videoRoutes = new Elysia({ prefix: '/api/video' })
   .get('/stream-url', ({ query, set }) => {
@@ -77,4 +78,42 @@ export const videoRoutes = new Elysia({ prefix: '/api/video' })
     query: t.Object({
       url: t.String()
     })
+  })
+  .post('/rate-clip', async ({ body }) => {
+    try {
+      await saveClipRating(
+        body.videoId,
+        body.videoUrl || '',
+        body.topic || '',
+        {
+          videoId: body.videoId,
+          clipTitle: body.clipTitle,
+          clipUrl: body.clipUrl || '',
+          startTime: body.startTime,
+          endTime: body.endTime,
+          contextOverlay: body.contextOverlay || '',
+          rating: body.rating,
+          approved: body.approved,
+          ratedAt: new Date().toISOString()
+        }
+      );
+      return { success: true, message: 'Rating saved!' };
+    } catch (error: any) {
+      console.error('[Ratings] Error saving:', error);
+      return { success: false, message: error.message };
+    }
+  }, {
+    body: t.Object({
+      videoId: t.String(),
+      videoUrl: t.Optional(t.String()),
+      topic: t.Optional(t.String()),
+      clipTitle: t.String(),
+      clipUrl: t.Optional(t.String()),
+      startTime: t.Number(),
+      endTime: t.Number(),
+      contextOverlay: t.Optional(t.String()),
+      rating: t.Number(),
+      approved: t.Boolean()
+    })
   });
+

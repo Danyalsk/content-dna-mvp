@@ -10,6 +10,7 @@ function App() {
   const [appState, setAppState] = useState<AppState>('upload');
   const [selectedSource, setSelectedSource] = useState<File | string | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [clipRatings, setClipRatings] = useState<Record<string, { approved: boolean; rating: number; saved: boolean }>>({}); 
 
   const handleVideoSelected = (source: File | string) => {
     setSelectedSource(source);
@@ -87,7 +88,11 @@ function App() {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-8">
-                    {extractedData.generatedClips && extractedData.generatedClips.map((clip: any, idx: number) => (
+                    {extractedData.generatedClips && extractedData.generatedClips.map((clip: any, idx: number) => {
+                      const ratingKey = `clip-${idx}`;
+                      const clipRating = clipRatings[ratingKey] || { approved: false, rating: 5, saved: false };
+                      
+                      return (
                       <div key={idx} className="group bg-[#141416] border border-gray-800 rounded-[2.5rem] p-5 shadow-2xl flex flex-col hover:border-blue-500/40 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
                         <div className="relative w-full aspect-[9/16] bg-black rounded-[2rem] overflow-hidden mb-6 shadow-2xl group-hover:scale-[1.01] transition-transform duration-500">
                           <video 
@@ -101,6 +106,13 @@ function App() {
                             <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.3)] backdrop-blur-md">
                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                                Split View Enabled
+                            </div>
+                          )}
+
+                          {/* Saved Rating Badge */}
+                          {clipRating.saved && (
+                            <div className="absolute top-4 right-4 z-20 bg-emerald-500/90 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md">
+                              ⭐ {clipRating.rating}/10
                             </div>
                           )}
                         </div>
@@ -123,9 +135,96 @@ function App() {
                                 Export
                               </a>
                            </div>
+
+                           {/* ===== RATING SECTION ===== */}
+                           <div className="pt-3 border-t border-gray-800/50 space-y-3">
+                              {/* Approve Button */}
+                              <button
+                                onClick={() => {
+                                  setClipRatings(prev => ({
+                                    ...prev,
+                                    [ratingKey]: { ...clipRating, approved: !clipRating.approved, saved: false }
+                                  }));
+                                }}
+                                className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                                  clipRating.approved
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                                    : 'bg-[#1a1a1e] text-gray-400 border border-gray-700 hover:border-emerald-500/40 hover:text-emerald-400'
+                                }`}
+                              >
+                                {clipRating.approved ? '✓ Approved' : '○ Approve This Clip'}
+                              </button>
+
+                              {/* Rating Slider (only after approval) */}
+                              {clipRating.approved && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Quality Rating</span>
+                                    <span className="text-lg font-black text-white">{clipRating.rating}<span className="text-gray-500 text-sm">/10</span></span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="1"
+                                    max="10"
+                                    value={clipRating.rating}
+                                    onChange={(e) => {
+                                      setClipRatings(prev => ({
+                                        ...prev,
+                                        [ratingKey]: { ...clipRating, rating: parseInt(e.target.value), saved: false }
+                                      }));
+                                    }}
+                                    className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer accent-blue-500"
+                                  />
+                                  <div className="flex justify-between text-[10px] text-gray-600 font-bold">
+                                    <span>Trash</span>
+                                    <span>Average</span>
+                                    <span>Viral 🔥</span>
+                                  </div>
+
+                                  {/* Save Button */}
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const res = await fetch('http://localhost:3000/api/video/rate-clip', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            videoId: `vid_${Date.now()}`,
+                                            topic: extractedData.topic || '',
+                                            clipTitle: clip.title,
+                                            clipUrl: clip.url,
+                                            startTime: clip.startTime,
+                                            endTime: clip.endTime,
+                                            contextOverlay: clip.contextOverlay || '',
+                                            rating: clipRating.rating,
+                                            approved: clipRating.approved
+                                          })
+                                        });
+                                        if (res.ok) {
+                                          setClipRatings(prev => ({
+                                            ...prev,
+                                            [ratingKey]: { ...clipRating, saved: true }
+                                          }));
+                                        }
+                                      } catch (err) {
+                                        console.error('Failed to save rating:', err);
+                                      }
+                                    }}
+                                    className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${
+                                      clipRating.saved
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                        : 'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]'
+                                    }`}
+                                    disabled={clipRating.saved}
+                                  >
+                                    {clipRating.saved ? '✓ Rating Saved!' : 'Save Rating'}
+                                  </button>
+                                </div>
+                              )}
+                           </div>
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                </div>
 
