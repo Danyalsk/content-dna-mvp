@@ -15,26 +15,55 @@ function formatAssTime(seconds: number): string {
 }
 
 export async function generateSubtitles(clip: VideoClip, transcription: TranscriptionResult, outputPath: string, scenes: SceneLayout[] = []): Promise<string> {
-  // Extract all words that fall within the clip's timeframe
+  const clipDuration = clip.endTime - clip.startTime;
+
+  // =====================================================================
+  // STEP 1: Extract words that fall within the clip's timeframe.
+  //         Supports BOTH word-level AND segment-level fallback.
+  // =====================================================================
   const clipWords: TranscriptionWord[] = [];
   
   for (const segment of transcription.segments) {
-    if (!segment.words) continue;
-    
-    for (const word of segment.words) {
-      if (word.end >= clip.startTime && word.start <= clip.endTime) {
-        clipWords.push({
-          word: word.word,
-          start: Math.max(0, word.start - clip.startTime),
-          end: Math.max(0, word.end - clip.startTime)
-        });
+    // Check if this segment overlaps with the clip at all
+    if (segment.end < clip.startTime || segment.start > clip.endTime) continue;
+
+    if (segment.words && segment.words.length > 0) {
+      // PREFERRED: Use word-level timestamps for karaoke highlighting
+      for (const word of segment.words) {
+        if (word.end >= clip.startTime && word.start <= clip.endTime) {
+          clipWords.push({
+            word: word.word,
+            start: Math.max(0, word.start - clip.startTime),
+            end: Math.max(0, word.end - clip.startTime)
+          });
+        }
+      }
+    } else if (segment.text && segment.text.trim().length > 0) {
+      // FALLBACK: No word-level timestamps — split segment text into synthetic words.
+      // Distribute timing evenly across words within the segment's time range.
+      const words = segment.text.trim().split(/\s+/);
+      const segStart = Math.max(0, segment.start - clip.startTime);
+      const segEnd = Math.max(0, segment.end - clip.startTime);
+      const segDuration = segEnd - segStart;
+      
+      if (words.length > 0 && segDuration > 0) {
+        const wordDuration = segDuration / words.length;
+        for (let w = 0; w < words.length; w++) {
+          clipWords.push({
+            word: words[w],
+            start: segStart + (w * wordDuration),
+            end: segStart + ((w + 1) * wordDuration)
+          });
+        }
       }
     }
   }
 
-  // Create standard ASS Header for a 9:16 video (1080x1920)
-  // Default Style: Alignment=2 (Bottom Center), MarginV=400 (dynamic override per line).
-  // Context Style: Alignment=8 (Top Center), MarginV=150, White text, Black box backing.
+  console.log(`[Subtitles] Found ${clipWords.length} words for clip "${clip.title}" (${clip.startTime.toFixed(1)}s - ${clip.endTime.toFixed(1)}s)`);
+
+  // =====================================================================
+  // STEP 2: Build the ASS file header with styles
+  // =====================================================================
   let assContent = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -49,17 +78,21 @@ Style: ContextStyle,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
-  // Inject the Context Overlay (Hook) if present. Displays for the first 3.5 seconds.
-  if (clip.contextOverlay && clipWords.length > 0) {
-    const clipDuration = clip.endTime - clip.startTime;
-    const overlayDuration = Math.min(clipDuration, 3.5); // Cap at 3.5s or clip length
+  // =====================================================================
+  // STEP 3: ALWAYS inject the Context Overlay (Hook) — NOT gated on clipWords!
+  //         This is the "scroll stopper" that gives viewers context in the first 3.5s.
+  // =====================================================================
+  if (clip.contextOverlay) {
+    const overlayDuration = Math.min(clipDuration, 3.5);
     const endTotal = formatAssTime(overlayDuration); 
-    // Replace newlines/escapes to be safe in ASS
     const safeContext = clip.contextOverlay.replace(/\\n/g, '\\N');
     assContent += `Dialogue: 1,0:00:00.00,${endTotal},ContextStyle,,0,0,0,,${safeContext}\n`;
+    console.log(`[Subtitles] Context overlay injected: "${safeContext}" (0 - ${overlayDuration.toFixed(1)}s)`);
   }
 
-  // Group words into chunks of ~3-5 words each for display
+  // =====================================================================
+  // STEP 4: Generate karaoke-style word-by-word subtitle events
+  // =====================================================================
   const WORDS_PER_CHUNK = 4;
   for (let i = 0; i < clipWords.length; i += WORDS_PER_CHUNK) {
     const chunk = clipWords.slice(i, i + WORDS_PER_CHUNK);
@@ -95,11 +128,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         }
       }
       
-      const eventMarginV = isSplit ? "960" : "400"; // Dynamic MarginV override per word!
+      const eventMarginV = isSplit ? "960" : "400";
       assContent += `Dialogue: 0,${startT},${endT},Default,,0,0,${eventMarginV},,${dialogueText.trim()}\n`;
     }
   }
 
   await writeFile(outputPath, assContent, 'utf-8');
+  console.log(`[Subtitles] ASS file written: ${outputPath} (${clipWords.length} words, context: ${!!clip.contextOverlay})`);
   return outputPath;
 }

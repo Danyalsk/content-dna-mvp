@@ -165,27 +165,65 @@ ${transcription.segments.map(s => `[${s.start.toFixed(1)}s - ${s.end.toFixed(1)}
         console.warn(`[Ollama:PostProcess] Clip "${clip.title}" is only ${duration.toFixed(1)}s — expanding to ${TARGET_CLIP_DURATION}s`);
         onProgress?.(`[Ollama:PostProcess] Clip "${clip.title}" was ${duration.toFixed(1)}s — expanding to ~${TARGET_CLIP_DURATION}s`);
         
-        // Strategy: Keep the startTime as the anchor and expand endTime forward.
-        // If that would exceed total video duration, expand backwards from endTime instead.
         let newEnd = clip.startTime + TARGET_CLIP_DURATION;
         let newStart = clip.startTime;
         
         if (newEnd > totalDuration) {
-          // Can't go forward enough, anchor from end and go backwards
-          newEnd = Math.min(totalDuration, clip.endTime + 5); // small buffer
+          newEnd = Math.min(totalDuration, clip.endTime + 5);
           newStart = Math.max(0, newEnd - TARGET_CLIP_DURATION);
         }
         
         parsed.clips[i].startTime = Math.round(newStart * 10) / 10;
         parsed.clips[i].endTime = Math.round(newEnd * 10) / 10;
         
-        console.log(`[Ollama:PostProcess] Clip "${clip.title}" fixed: ${parsed.clips[i].startTime}s - ${parsed.clips[i].endTime}s (${(parsed.clips[i].endTime - parsed.clips[i].startTime).toFixed(1)}s)`);
+        console.log(`[Ollama:PostProcess] Clip "${clip.title}" expanded: ${parsed.clips[i].startTime}s - ${parsed.clips[i].endTime}s`);
       }
       
-      // Also cap clips that are too long (>59s)
-      if (clip.endTime - clip.startTime > 59) {
+      // Cap clips that are too long (>59s)
+      if (parsed.clips[i].endTime - parsed.clips[i].startTime > 59) {
         parsed.clips[i].endTime = parsed.clips[i].startTime + 55;
         console.warn(`[Ollama:PostProcess] Clip "${clip.title}" was too long — capped to 55s`);
+      }
+    }
+
+    // ========== POST-PROCESSING: Snap to sentence boundaries ==========
+    // Ensures clips don't cut mid-sentence. Find the nearest segment boundary.
+    const segments = transcription.segments;
+    if (segments.length > 0) {
+      for (let i = 0; i < parsed.clips.length; i++) {
+        const clip = parsed.clips[i];
+        
+        // Snap startTime to the start of the nearest segment that begins at or before clip.startTime
+        let bestStartSeg = segments[0];
+        for (const seg of segments) {
+          if (seg.start <= clip.startTime && seg.start >= bestStartSeg.start) {
+            bestStartSeg = seg;
+          }
+        }
+        // Only snap if it doesn't drastically change the clip (within 5 seconds)
+        if (Math.abs(bestStartSeg.start - clip.startTime) < 5) {
+          parsed.clips[i].startTime = bestStartSeg.start;
+        }
+        
+        // Snap endTime to the end of the nearest segment that ends at or after clip.endTime
+        let bestEndSeg = segments[segments.length - 1];
+        for (const seg of segments) {
+          if (seg.end >= clip.endTime && seg.end <= bestEndSeg.end) {
+            bestEndSeg = seg;
+          }
+        }
+        if (Math.abs(bestEndSeg.end - clip.endTime) < 5) {
+          parsed.clips[i].endTime = bestEndSeg.end;
+        }
+        
+        // Re-enforce duration cap after snapping
+        if (parsed.clips[i].endTime - parsed.clips[i].startTime > 59) {
+          parsed.clips[i].endTime = parsed.clips[i].startTime + 55;
+        }
+        
+        const finalDuration = parsed.clips[i].endTime - parsed.clips[i].startTime;
+        console.log(`[Ollama:PostProcess] Clip "${clip.title}" snapped to sentences: ${parsed.clips[i].startTime.toFixed(1)}s - ${parsed.clips[i].endTime.toFixed(1)}s (${finalDuration.toFixed(1)}s)`);
+        onProgress?.(`[Ollama:PostProcess] Clip "${clip.title}" aligned to sentence boundaries (${finalDuration.toFixed(0)}s)`);
       }
     }
 

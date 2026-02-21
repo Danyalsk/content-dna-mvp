@@ -106,19 +106,6 @@ export async function generateClips(videoPath: string, clips: VideoClip[], trans
       
       const safeAssPath = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:');
       
-      // Escape text for FFmpeg filtergraph:
-      // - Backslashes need to be escaped for bash, then again for FFmpeg, then again for drawtext
-      // - Colons MUST be escaped with a backslash because they are filter argument separators
-      // - Single quotes MUST be escaped or avoided
-      let escapedOverlay = "";
-      if (clip.contextOverlay) {
-         // 1. replace all single quotes with standard apostrophe or purely strip them to avoid bash/ffmpeg hell.
-         let safeText = clip.contextOverlay.replace(/'/g, "");
-         // 2. escape colons
-         safeText = safeText.replace(/:/g, '\\\\:');
-         escapedOverlay = safeText;
-      }
-
       let filter = "";
       
       if (splitScenes.length > 0) {
@@ -139,6 +126,11 @@ export async function generateClips(videoPath: string, clips: VideoClip[], trans
       const filterGraphPath = join(PUBLIC_CLIPS, filterGraphFilename);
       await writeFile(filterGraphPath, filter, 'utf-8');
       
+      // Calculate audio fade parameters
+      const clipLen = clip.endTime - clip.startTime;
+      const fadeOutStart = Math.max(0, clipLen - 0.3);
+      const audioFilter = `afade=t=in:d=0.3,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.3`;
+
       onProgress?.(`[FFmpeg] Cutting and cropping video segment using filter script...`);
       await new Promise<void>((resolve, reject) => {
         const ffmpegProcess = spawn('ffmpeg', [
@@ -149,6 +141,7 @@ export async function generateClips(videoPath: string, clips: VideoClip[], trans
           '-filter_complex_script', filterGraphPath,
           '-map', '[v]',
           '-map', '0:a?',
+          '-af', audioFilter,
           '-c:v', 'libx264',
           '-preset', 'fast',
           '-c:a', 'aac',
