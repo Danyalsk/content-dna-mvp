@@ -25,6 +25,7 @@ export async function extractContentDNA(transcription: TranscriptionResult, onPr
 
 CRITICAL RULE 1: The duration of the clip (endTime - startTime) MUST BE LESS THAN 60 SECONDS to fit YouTube Shorts limits. Absolutely do not exceed 59 seconds per clip.
 CRITICAL RULE 2: You MUST return exactly 2 clips in the array. NEVER return an empty array.
+CRITICAL RULE 3: DO NOT select random, boring, or out-of-context segments. The clips MUST be high-retention, viral moments (e.g., strong opinions, controversial statements, sudden realizations, or high-energy dialogue). The hook must instantly grab attention.
 
 MANDATORY JSON FORMAT TEMPLATE:
 {
@@ -79,7 +80,10 @@ ${transcription.segments.map(s => `[${s.start.toFixed(1)}s - ${s.end.toFixed(1)}
         model: 'llama3.2',
         prompt: prompt,
         stream: false,
-        format: schema
+        format: schema,
+        options: {
+          temperature: 0.3
+        }
       })
     });
 

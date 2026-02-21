@@ -49,14 +49,15 @@ Style: ContextStyle,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
-  // Inject the Context Overlay (Hook) if present. Displays for the entire clip duration.
+  // Inject the Context Overlay (Hook) if present. Displays for the first 3.5 seconds.
   if (clip.contextOverlay && clipWords.length > 0) {
-    const endTotal = formatAssTime(clip.endTime - clip.startTime); // Relative duration
+    const clipDuration = clip.endTime - clip.startTime;
+    const overlayDuration = Math.min(clipDuration, 3.5); // Cap at 3.5s or clip length
+    const endTotal = formatAssTime(overlayDuration); 
     // Replace newlines/escapes to be safe in ASS
     const safeContext = clip.contextOverlay.replace(/\\n/g, '\\N');
     assContent += `Dialogue: 1,0:00:00.00,${endTotal},ContextStyle,,0,0,0,,${safeContext}\n`;
   }
-
 
   // Group words into chunks of ~3-5 words each for display
   const WORDS_PER_CHUNK = 4;
