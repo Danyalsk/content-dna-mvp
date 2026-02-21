@@ -59,8 +59,8 @@ def main():
         centers = []
         if len(faces) > 0:
             # Filter by size - ignore tiny background detections or noise
-            # Minimum face height should be at least 10% of total height
-            valid_faces = [f for f in faces if f[3] > height * 0.10]
+            # Minimum face height should be at least 15% of total height
+            valid_faces = [f for f in faces if f[3] > height * 0.15]
             
             if valid_faces:
                 # Sort by X
@@ -166,10 +166,26 @@ def main():
                 flattened.sort()
                 median_x = flattened[len(flattened)//2]
             else:
+                # No face detected in this scene — use CENTER of frame for a clean establishing shot
                 median_x = width / 2
             
             crop_width_single = int(height * (9/16))
+            
+            # PADDING: Ensure the face is not at the extreme edge of the crop.
+            # The face center should sit within the middle 60% of the crop window.
+            # This prevents half-face close-ups when the face is near the frame boundary.
+            min_face_margin = int(crop_width_single * 0.20)  # 20% margin on each side
             crop_x = int(median_x - (crop_width_single / 2))
+            crop_x = max(0, min(crop_x, width - crop_width_single))
+            
+            # Check if the face center is too close to the crop edge
+            face_pos_in_crop = median_x - crop_x
+            if face_pos_in_crop < min_face_margin:
+                crop_x = max(0, int(median_x - min_face_margin))
+            elif face_pos_in_crop > crop_width_single - min_face_margin:
+                crop_x = min(width - crop_width_single, int(median_x - crop_width_single + min_face_margin))
+            
+            # Final bounds check
             crop_x = max(0, min(crop_x, width - crop_width_single))
             scene_data["x"] = crop_x
             

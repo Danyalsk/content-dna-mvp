@@ -80,10 +80,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   // =====================================================================
   // STEP 3: ALWAYS inject the Context Overlay (Hook) — NOT gated on clipWords!
-  //         This is the "scroll stopper" that gives viewers context in the first 3.5s.
+  //         This is the "scroll stopper" that gives viewers context in the first 5s.
   // =====================================================================
   if (clip.contextOverlay) {
-    const overlayDuration = Math.min(clipDuration, 3.5);
+    const overlayDuration = Math.min(clipDuration, 5.0);
     const endTotal = formatAssTime(overlayDuration); 
     const safeContext = clip.contextOverlay.replace(/\\n/g, '\\N');
     assContent += `Dialogue: 1,0:00:00.00,${endTotal},ContextStyle,,0,0,0,,${safeContext}\n`;

@@ -49,7 +49,9 @@ Analyze the transcript below and return a JSON object with:
    - "title": a catchy, clickbait-worthy title
    - "startTime": start time in seconds (number, from the transcript timestamps)
    - "endTime": end time in seconds (number, from the transcript timestamps). MUST be at least 30 seconds after startTime.
-   - "contextOverlay": a punchy 3-6 word viral hook (e.g. "The ugly truth about money:", "Why 99% of people fail:")
+   - "contextOverlay": A punchy, emotional hook that TEASES what's about to happen in the clip (3-8 words max). It must create curiosity and make the viewer NEED to watch.
+      GOOD examples: "Mike impressing Harvey:", "The betrayal nobody expected:", "He said this to her face:", "Why he got fired:"
+      BAD examples (DO NOT DO THIS): "Harvey and Mike are partners", "Two people talking", "Scene from the show" — these are boring descriptions, NOT hooks.
 
 MANDATORY JSON FORMAT:
 {
