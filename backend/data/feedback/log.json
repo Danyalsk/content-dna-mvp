@@ -1,0 +1,27 @@
+[
+  {
+    "id": "fb_1772162623802",
+    "category": "clips_too_short",
+    "feedbackText": "The clips are way too short, I need at least 30 second clips",
+    "createdAt": "2026-02-27T03:23:43.802Z"
+  },
+  {
+    "id": "fb_1772162644186",
+    "category": "bad_titles",
+    "feedbackText": "Titles are too generic and clickbaity, make them more specific to the actual content",
+    "createdAt": "2026-02-27T03:24:04.186Z"
+  },
+  {
+    "id": "fb_1772164018640",
+    "category": "general",
+    "feedbackText": "there is not sound in clips , captions are not covering full video and its inconsistent. also make a reasoning strong so that we dont get trash hooks. i first clip , there is a caption for some second with audio but audio and caption are getting dissapper after few secs. the face recogniation model is not accurate. also our system is not reading the video properly. its right now marely on faces detection human detection but video can be random right. animation video n all",
+    "createdAt": "2026-02-27T03:46:58.640Z"
+  },
+  {
+    "id": "fb_1772164232700",
+    "category": "bad_titles",
+    "feedbackText": "the titles r so basic and boring, make them more specific to what the person is actually saying in the clip",
+    "refinedInstruction": "You must generate clip titles that accurately summarize the main topic or key phrase spoken by the person in the video clip.",
+    "createdAt": "2026-02-27T03:50:32.700Z"
+  }
+]

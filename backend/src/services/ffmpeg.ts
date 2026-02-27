@@ -108,6 +108,11 @@ export async function generateClips(videoPath: string, clips: VideoClip[], trans
       
       let filter = "";
       
+      // Calculate audio fade parameters
+      const clipDuration = clip.endTime - clip.startTime;
+      const fadeOutStart = Math.max(0, clipDuration - 0.3);
+      const audioFilter = `[0:a]afade=t=in:d=0.3,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.3[a]`;
+      
       if (splitScenes.length > 0) {
          // --- DYNAMIC SWITCHING SCRIPT ---
          onProgress?.(`[FFmpeg] Cut detected! Switching dynamically between Single and Split Views.`);
@@ -116,32 +121,26 @@ export async function generateClips(videoPath: string, clips: VideoClip[], trans
          const splitDef = `[0:v]crop=1080:1080:${globalLeftX}:0[top_part];[0:v]crop=1080:1080:${globalRightX}:0[bottom_part];[top_part][bottom_part]vstack[stacked];[stacked]crop=1080:1920[split_fg]`;
          const enableExprs = splitScenes.map(s => `between(t,${s.start},${s.end})`).join('+');
          
-         filter = `${singleDef};${splitDef};[single_bg][split_fg]overlay=enable='${enableExprs}'[composite];[composite]ass=filename='${safeAssPath}'[v]`;
+         filter = `${singleDef};${splitDef};[single_bg][split_fg]overlay=enable='${enableExprs}'[composite];[composite]ass=filename='${safeAssPath}'[v];${audioFilter}`;
       } else {
          // --- CONTINUOUS SINGLE SPEAKER ---
-         filter = `[0:v]crop=${cropData.crop_width}:${cropData.crop_height}:${globalSingleX}:0,scale=1080:1920[cropped];[cropped]ass=filename='${safeAssPath}'[v]`;
+         filter = `[0:v]crop=${cropData.crop_width}:${cropData.crop_height}:${globalSingleX}:0,scale=1080:1920[cropped];[cropped]ass=filename='${safeAssPath}'[v];${audioFilter}`;
       }
 
       const filterGraphFilename = `filter_${timestamp}.txt`;
       const filterGraphPath = join(PUBLIC_CLIPS, filterGraphFilename);
       await writeFile(filterGraphPath, filter, 'utf-8');
-      
-      // Calculate audio fade parameters
-      const clipLen = clip.endTime - clip.startTime;
-      const fadeOutStart = Math.max(0, clipLen - 0.3);
-      const audioFilter = `afade=t=in:d=0.3,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=0.3`;
 
       onProgress?.(`[FFmpeg] Cutting and cropping video segment using filter script...`);
       await new Promise<void>((resolve, reject) => {
         const ffmpegProcess = spawn('ffmpeg', [
           '-y',
+          '-ss', clip.startTime.toString(),   // BEFORE -i: input-level seek, resets timestamps to 0
           '-i', videoPath,
-          '-ss', clip.startTime.toString(),
-          '-to', clip.endTime.toString(),
+          '-t', clipDuration.toString(),       // duration, not absolute end time
           '-filter_complex_script', filterGraphPath,
           '-map', '[v]',
-          '-map', '0:a?',
-          '-af', audioFilter,
+          '-map', '[a]',                       // map audio from filter graph, not raw stream
           '-c:v', 'libx264',
           '-preset', 'fast',
           '-c:a', 'aac',

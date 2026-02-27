@@ -1,0 +1,9 @@
+{
+  "minClipDuration": 20,
+  "targetClipDuration": 45,
+  "maxClipDuration": 55,
+  "sentenceSnapBuffer": 5,
+  "titleStyle": "specific, descriptive, NOT generic clickbait — use concrete details from the content",
+  "tweetStyle": "engaging, opinionated",
+  "extraPromptRules": []
+}

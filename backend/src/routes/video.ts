@@ -4,6 +4,7 @@ import { transcribeAudio } from '../services/transcription';
 import { extractContentDNA } from '../services/ollama';
 import { generateClips } from '../services/ffmpeg';
 import { saveClipRating } from '../services/ratings';
+import { saveFeedback, getAllFeedback, type FeedbackCategory } from '../services/feedback';
 
 export const videoRoutes = new Elysia({ prefix: '/api/video' })
   .get('/stream-url', ({ query, set }) => {
@@ -115,5 +116,37 @@ export const videoRoutes = new Elysia({ prefix: '/api/video' })
       rating: t.Number(),
       approved: t.Boolean()
     })
+  })
+  // ============================================================
+  // Feedback System Routes
+  // ============================================================
+  .post('/submit-feedback', async ({ body }) => {
+    try {
+      await saveFeedback({
+        id: `fb_${Date.now()}`,
+        category: body.category as FeedbackCategory,
+        feedbackText: body.feedbackText,
+        refinedInstruction: '',  // Will be filled by AI rephrase in saveFeedback
+        createdAt: new Date().toISOString(),
+      });
+      return { success: true, message: 'Feedback saved! Your preferences will be applied on the next video run.' };
+    } catch (error: any) {
+      console.error('[Feedback] Error saving:', error);
+      return { success: false, message: error.message };
+    }
+  }, {
+    body: t.Object({
+      category: t.String(),
+      feedbackText: t.String(),
+    })
+  })
+  .get('/feedback-history', async () => {
+    try {
+      const entries = await getAllFeedback();
+      return { success: true, feedback: entries.slice(-20).reverse() };
+    } catch (error: any) {
+      console.error('[Feedback] Error loading history:', error);
+      return { success: false, feedback: [], message: error.message };
+    }
   });
 

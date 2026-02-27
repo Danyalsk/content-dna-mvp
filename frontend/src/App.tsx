@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Shell } from './components/layout/Shell';
 import { UploadZone } from './components/upload/UploadZone';
 import { ProcessingView } from './components/upload/ProcessingView';
+import { FeedbackPanel } from './components/feedback/FeedbackPanel';
 import { CheckCircle2 } from 'lucide-react';
 
 type AppState = 'upload' | 'processing' | 'results';
@@ -249,6 +250,9 @@ function App() {
                </div>
 
             </div>
+
+            {/* ===== FEEDBACK PANEL ===== */}
+            <FeedbackPanel />
           </div>
         )}
       </div>
